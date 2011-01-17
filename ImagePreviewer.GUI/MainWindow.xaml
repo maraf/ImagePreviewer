@@ -1,4 +1,4 @@
-﻿<Window x:Class="ImagePreviewer.GUI.MainWindow" x:Name="winMainWindow"
+﻿<Window x:Class="ImagePreviewer.GUI.MainWindow" x:Name="mainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:ImagePreviewer.GUI"
@@ -23,7 +23,18 @@
                 <Button x:Name="btnLinksInput" Content="Links input" Width="80" Margin="0,0,10,0" Click="btnLinksInput_Click" />
                 <Button x:Name="btnClear" Content="Clear" Margin="0,0,10,0" Width="50" Click="btnClear_Click" />
                 <Button x:Name="btnSave" Content="Save selected" Width="95" Margin="0,0,10,0" Click="btnSave_Click" />
-                <CheckBox x:Name="cbxAppend" Content="Append new images" Margin="0,5,10,5" />
+                <CheckBox x:Name="cbxAppend" Content="Append new" Margin="0,5,10,5" />
+                <Label Content="Images: " />
+                <Label Content="{Binding ElementName=mainWindow, Path=LoadedCount}" />
+                <Label Content="/" />
+                <Label Content="{Binding ElementName=mainWindow, Path=TotalCount}" />
+                <Label Content="{Binding ElementName=mainWindow, Path=Message}" />
+                <StackPanel x:Name="scpDownload" Orientation="Horizontal">
+                    <Label Content="Downloading: " />
+                    <Label Content="{Binding ElementName=mainWindow, Path=DownloadedCount}" />
+                    <Label Content="/" />
+                    <Label Content="{Binding ElementName=mainWindow, Path=DownloadingCount}" />
+                </StackPanel>
             </StackPanel>
         </StackPanel>
 
@@ -65,12 +76,14 @@
                 <Label x:Name="lblDetailHeight" />
             </StackPanel>
         </StackPanel>
+        <!--<ScrollViewer x:Name="svwScroller" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" CanContentScroll="False">-->
         <Grid>
-            <Image x:Name="imgDetail"  HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden">
-                <Image.LayoutTransform>
-                    <RotateTransform/>
-                </Image.LayoutTransform>
-            </Image>
+            <Border Name="borDetail">
+                <Image x:Name="imgDetail" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden" 
+                   MouseWheel="imgDetail_MouseWheel" MouseMove="imgDetail_MouseMove" RenderTransformOrigin="0.5,0"
+                   MouseLeftButtonDown="imgDetail_MouseLeftButtonDown" MouseLeftButtonUp="imgDetail_MouseLeftButtonUp" />
+            </Border>
         </Grid>
+        <!--</ScrollViewer>-->
     </DockPanel>
 </Window>
