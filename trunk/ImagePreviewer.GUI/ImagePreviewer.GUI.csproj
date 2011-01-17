@@ -36,7 +36,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LinkExtractorAsLibrary, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="LinkExtractorAsLibrary">
       <HintPath>..\..\LinkExtractor\LinkExtractorAsLibrary\bin\Release\LinkExtractorAsLibrary.dll</HintPath>
     </Reference>
     <Reference Include="System" />

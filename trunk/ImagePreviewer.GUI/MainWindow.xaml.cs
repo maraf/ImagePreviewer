@@ -30,15 +30,82 @@ namespace ImagePreviewer.GUI
         Images images = new Images();
         FolderBrowserDialog fbd = new FolderBrowserDialog();
 
+        public static DependencyProperty TotalCountProperty = DependencyProperty.Register("TotalCount", typeof(int), typeof(MainWindow));
+        public static DependencyProperty LoadedCountProperty = DependencyProperty.Register("LoadedCount", typeof(int), typeof(MainWindow));
+        public static DependencyProperty MessageProperty = DependencyProperty.Register("Message", typeof(string), typeof(MainWindow));
+        public static DependencyProperty DownloadingCountProperty = DependencyProperty.Register("DownloadingCount", typeof(int), typeof(MainWindow));
+        public static DependencyProperty DownloadedCountProperty = DependencyProperty.Register("DownloadedCount", typeof(int), typeof(MainWindow));
+
+        /// <summary>
+        /// Celkovy pocet nacitanych obrazky
+        /// </summary>
+        public int TotalCount
+        {
+            get { return (int)GetValue(TotalCountProperty); }
+            set { SetValue(TotalCountProperty, value); }
+        }
+
+        /// <summary>
+        /// Jiz nacteny pocet obrazku
+        /// </summary>
+        public int LoadedCount
+        {
+            get { return (int)GetValue(LoadedCountProperty); }
+            set { SetValue(LoadedCountProperty, value); }
+        }
+
+        /// <summary>
+        /// Zprava
+        /// </summary>
+        public string Message {
+            get { return (string)GetValue(MessageProperty); }
+            set { SetValue(MessageProperty, value); }
+        }
+
+        /// <summary>
+        /// Celkovy pocet stahovanych obrazku
+        /// </summary>
+        public int DownloadingCount
+        {
+            get { return (int)GetValue(DownloadingCountProperty); }
+            set { SetValue(DownloadingCountProperty, value); }
+        }
+
+        /// <summary>
+        /// Pocet jiz stazenych obrazku
+        /// </summary>
+        public int DownloadedCount
+        {
+            get { return (int)GetValue(DownloadedCountProperty); }
+            set { SetValue(DownloadedCountProperty, value); }
+        }
+
         public MainWindow()
         {
             InitializeComponent();
 
             this.DataContext = images;
+
+            #region ZOOMING
+            TransformGroup group = new TransformGroup();
+
+            ScaleTransform xform = new ScaleTransform();
+            group.Children.Add(xform);
+
+            TranslateTransform tt = new TranslateTransform();
+            group.Children.Add(tt);
+
+            imgDetail.RenderTransform = group;
+            #endregion
+
+            LoadedCount = 5;
+            TotalCount = 10;
         }
 
         private void CreateImage(string url)
         {
+            TotalCount++;
+
             ThreadStart start = delegate()
             {
                 DispatcherOperation op = Dispatcher.BeginInvoke(
@@ -76,6 +143,11 @@ namespace ImagePreviewer.GUI
                     img.Bitmap = image;
                     img.Checked = false;
                     images.Add(img);
+                    LoadedCount++;
+                };
+                image.DownloadFailed += delegate
+                {
+                    TotalCount--;
                 };
                 image.EndInit();
             }
@@ -84,6 +156,104 @@ namespace ImagePreviewer.GUI
                 //TODO: ???
             }
         }
+
+        private void DownloadImage(string url)
+        {
+            ThreadStart start = delegate()
+            {
+                DispatcherOperation op = Dispatcher.BeginInvoke(
+                    DispatcherPriority.Normal,
+                    new Action<string>(DownloadImageAsync),
+                    url);
+
+                DispatcherOperationStatus status = op.Status;
+                while (status != DispatcherOperationStatus.Completed)
+                {
+                    status = op.Wait(TimeSpan.FromMilliseconds(1000));
+                    if (status == DispatcherOperationStatus.Aborted)
+                    {
+                        System.Windows.MessageBox.Show("Error downloading image!");
+                    }
+                }
+            };
+
+            new Thread(start).Start();
+        }
+
+        private void DownloadImageAsync(string url)
+        {
+            Guid photoID = System.Guid.NewGuid();
+            String photolocation = photoID.ToString() + ".jpg";  //file name 
+            WriteBytesToFile(fbd.SelectedPath + @"\" + photolocation, GetBytesFromUrl(url));
+            DownloadedCount++;
+
+            if (DownloadingCount == DownloadedCount)
+            {
+                Message = "All selected images downloaded.";
+            }
+        }
+
+        private void ClearImages()
+        {
+            images.Clear();
+            TotalCount = 0;
+            LoadedCount = 0;
+            DownloadedCount = 0;
+            DownloadingCount = 0;
+        }
+
+        #region ZOOMING
+
+        Point start;
+        Point origin;
+
+        private void imgDetail_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            TransformGroup transformGroup = (TransformGroup)imgDetail.RenderTransform;
+            ScaleTransform transform = (ScaleTransform)transformGroup.Children[0];
+
+            //var position = e.GetPosition(imgDetail);
+            //imgDetail.RenderTransformOrigin = new Point(position.X / imgDetail.ActualWidth, position.Y / imgDetail.ActualHeight);
+
+            double zoom = e.Delta > 0 ? .2 : -.2;
+            if ((transform.ScaleX + zoom) >= 1)
+            {
+                transform.ScaleX += zoom;
+            }
+            if ((transform.ScaleY + zoom) >= 1)
+            {
+                transform.ScaleY += zoom;
+            }
+        }
+        private void imgDetail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            imgDetail.CaptureMouse();
+            var tt = (TranslateTransform)((TransformGroup)imgDetail.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            start = e.GetPosition(borDetail);
+            origin = new Point(tt.X, tt.Y);
+        }
+
+        private void imgDetail_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!imgDetail.IsMouseCaptured) return;
+
+            var tt = (TranslateTransform)((TransformGroup)imgDetail.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            Vector v = start - e.GetPosition(borDetail);
+            Message = String.Format("Origin({0},{1}),v({0},{1})", origin.X, origin.Y, v.X, v.Y);
+            tt.X = origin.X - v.X;
+
+            //if ((origin.Y - v.Y) > 0)
+            //{
+                tt.Y = origin.Y - v.Y;
+            //}
+        }
+
+        private void imgDetail_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            imgDetail.ReleaseMouseCapture();
+        }
+
+        #endregion
 
         static public byte[] GetBytesFromUrl(string url)
         {
@@ -144,13 +314,14 @@ namespace ImagePreviewer.GUI
             //fbd.RootFolder = Environment.SpecialFolder.Personal;
             if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
+                Message = "";
+                scpDownload.Visibility = System.Windows.Visibility.Visible;
+                DownloadedCount = 0;
                 foreach (Image lbi in lbxImages.Items)
                 {
                     if (lbi.Checked)
                     {
-                        Guid photoID = System.Guid.NewGuid();
-                        String photolocation = photoID.ToString() + ".jpg";  //file name 
-                        WriteBytesToFile(fbd.SelectedPath + @"\" + photolocation, GetBytesFromUrl(lbi.Bitmap.UriSource.AbsoluteUri));
+                        DownloadImage(lbi.Bitmap.UriSource.AbsoluteUri);
                     }
                 }
             }
@@ -160,7 +331,7 @@ namespace ImagePreviewer.GUI
         private void btnSeriesInput_Click(object sender, RoutedEventArgs e)
         {
             if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
-                images.Clear();
+                ClearImages();
 
             SeriesInput si = new SeriesInput();
             si.LoadButtonClicked += delegate
@@ -178,7 +349,7 @@ namespace ImagePreviewer.GUI
         private void btnLinksInput_Click(object sender, RoutedEventArgs e)
         {
             if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
-                images.Clear();
+                ClearImages();
 
             LinkExtractor.MainForm form = new LinkExtractor.MainForm();
             form.SubstractLinksButtonClicked += delegate {
@@ -202,13 +373,22 @@ namespace ImagePreviewer.GUI
         {
             if (lbxImages.SelectedItem != null && e.Key.Equals(Key.Space))
             {
-                images[lbxImages.SelectedIndex].Checked = !images[lbxImages.SelectedIndex].Checked;
+                if (images[lbxImages.SelectedIndex].Checked)
+                {
+                    images[lbxImages.SelectedIndex].Checked = false;
+                    DownloadingCount--;
+                }
+                else
+                {
+                    images[lbxImages.SelectedIndex].Checked = true;
+                    DownloadingCount++;
+                }
             }
         }
 
         private void btnClear_Click(object sender, RoutedEventArgs e)
         {
-            images.Clear();
+            ClearImages();
         }
     }
 }

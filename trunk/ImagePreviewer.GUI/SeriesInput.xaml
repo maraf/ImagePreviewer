@@ -7,7 +7,7 @@
             <StackPanel Height="26" Orientation="Horizontal" Margin="5">
                 <Label Content="Example:" Width="100" />
                 <!-- http://upskirt.maximalblog.net/Party%200{0:D3}.jpg -->
-                <TextBox x:Name="tbxExample" Width="360" Text="http://lesbianvideoclips.info/teen-lesbian-anal-sex/pics/{0:D3}.jpg" IsReadOnly="True" Margin="0,0,5,0" />
+                <TextBox x:Name="tbxExample" Width="360" Text="http://media1.rozzlobenimuzi.com/privileg/belza/images/picicky/heather_vandeven_08/{0:D3}.jpg" IsReadOnly="True" Margin="0,0,5,0" />
                 <Button Content="Copy" Click="Button_Click" />
             </StackPanel>
             <StackPanel Height="26" Orientation="Horizontal" Margin="5">
@@ -16,14 +16,14 @@
             </StackPanel>
             <StackPanel Height="26" Orientation="Horizontal" Margin="5">
                 <Label Content="From:" Width="100" />
-                <TextBox x:Name="tbxFrom" Width="40" Text="100" />
+                <TextBox x:Name="tbxFrom" Width="40" Text="1" />
             </StackPanel>
             <StackPanel Height="26" Orientation="Horizontal" Margin="5">
                 <Label Content="To:" Width="100" />
-                <TextBox x:Name="tbxTo" Width="40" Text="101" />
+                <TextBox x:Name="tbxTo" Width="40" Text="120" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Margin="5" HorizontalAlignment="Right">
-                <Button x:Name="btnLoad" Content="Load" Width="60" Click="btnLoad_Click"  />
+                <Button x:Name="btnLoad" Content="Load" Width="60" Click="btnLoad_Click" IsDefault="True" />
             </StackPanel>
         </StackPanel>
     </Grid>
