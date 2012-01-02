@@ -10,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using DesktopCore;
 
 namespace ImagePreviewer.GUI
 {
@@ -18,44 +19,39 @@ namespace ImagePreviewer.GUI
     /// </summary>
     public partial class SeriesInput : Window
     {
-        public event DetailButtonHandler LoadButtonClicked;
+        public bool Selected { get; set; }
+        public Manager Manager { get; set; }
 
-        public SeriesInput()
+        public SeriesInput(Manager manager)
         {
             InitializeComponent();
 
-            tbxUrl.Focus();
+            Selected = false;
+            Manager = manager;
+            DataContext = Manager;
+
+            cbxUrl.Focus();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            GlassHelper.ExtendGlassFrame(this, new Thickness(-1));
         }
 
         public void btnLoad_Click(Object sender, RoutedEventArgs e)
         {
-            Fire(LoadButtonClicked, this, e);
+            if (!String.IsNullOrEmpty(Manager.CurrentFormat) && !String.IsNullOrWhiteSpace(Manager.CurrentFormat) && !Manager.Formats.Contains(Manager.CurrentFormat))
+                Manager.Formats.Add(Manager.CurrentFormat);
+
+            Selected = true;
+            Close();
         }
 
-        public List<string> Get() {
-            List<string> images = new List<string>();
-            int from = Int32.Parse(tbxFrom.Text);
-            int to = Int32.Parse(tbxTo.Text);
-
-            for (int i = from; i <= to; i++)
-            {
-                images.Add(String.Format(tbxUrl.Text, i));
-            }
-
-            return images;
-        }
-
-        protected void Fire(Delegate dlg, params object[] pList)
+        private void btnCopy_Click(object sender, RoutedEventArgs e)
         {
-            if (dlg != null)
-            {
-                this.Dispatcher.BeginInvoke(dlg, pList);
-            }
-        }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            tbxUrl.Text = tbxExample.Text;
+            Manager.CurrentFormat = Manager.ExampleFormat;
         }
     }
 }

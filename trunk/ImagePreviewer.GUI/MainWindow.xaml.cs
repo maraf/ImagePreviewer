@@ -17,76 +17,46 @@ using System.IO;
 using System.Windows.Forms;
 using System.Threading;
 using System.Windows.Threading;
+using DesktopCore;
+using System.Collections.Specialized;
 
 namespace ImagePreviewer.GUI
 {
-    public delegate void DetailButtonHandler(object sender, RoutedEventArgs e);
-
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
-        Images images = new Images();
-        FolderBrowserDialog fbd = new FolderBrowserDialog();
+        private List<string> newUrls = new List<string>();
+        private System.Windows.Forms.FolderBrowserDialog dialog;
 
-        public static DependencyProperty TotalCountProperty = DependencyProperty.Register("TotalCount", typeof(int), typeof(MainWindow));
-        public static DependencyProperty LoadedCountProperty = DependencyProperty.Register("LoadedCount", typeof(int), typeof(MainWindow));
-        public static DependencyProperty MessageProperty = DependencyProperty.Register("Message", typeof(string), typeof(MainWindow));
-        public static DependencyProperty DownloadingCountProperty = DependencyProperty.Register("DownloadingCount", typeof(int), typeof(MainWindow));
-        public static DependencyProperty DownloadedCountProperty = DependencyProperty.Register("DownloadedCount", typeof(int), typeof(MainWindow));
-
-        /// <summary>
-        /// Celkovy pocet nacitanych obrazky
-        /// </summary>
-        public int TotalCount
-        {
-            get { return (int)GetValue(TotalCountProperty); }
-            set { SetValue(TotalCountProperty, value); }
-        }
-
-        /// <summary>
-        /// Jiz nacteny pocet obrazku
-        /// </summary>
-        public int LoadedCount
-        {
-            get { return (int)GetValue(LoadedCountProperty); }
-            set { SetValue(LoadedCountProperty, value); }
-        }
-
-        /// <summary>
-        /// Zprava
-        /// </summary>
-        public string Message {
-            get { return (string)GetValue(MessageProperty); }
-            set { SetValue(MessageProperty, value); }
-        }
-
-        /// <summary>
-        /// Celkovy pocet stahovanych obrazku
-        /// </summary>
-        public int DownloadingCount
-        {
-            get { return (int)GetValue(DownloadingCountProperty); }
-            set { SetValue(DownloadingCountProperty, value); }
-        }
-
-        /// <summary>
-        /// Pocet jiz stazenych obrazku
-        /// </summary>
-        public int DownloadedCount
-        {
-            get { return (int)GetValue(DownloadedCountProperty); }
-            set { SetValue(DownloadedCountProperty, value); }
-        }
+        Manager Manager { get; set; }
 
         public MainWindow()
         {
             InitializeComponent();
+            InitializeZooming();
 
-            this.DataContext = images;
+            Manager = new Manager();
+            Manager.Load(Manager.DefaultLocation);
 
-            #region ZOOMING
+            DataContext = Manager;
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            GlassHelper.ExtendGlassFrame(this, new Thickness(-1));
+        }
+
+        #region ZOOMING
+
+        Point start;
+        Point origin;
+
+        private void InitializeZooming()
+        {
             TransformGroup group = new TransformGroup();
 
             ScaleTransform xform = new ScaleTransform();
@@ -96,116 +66,27 @@ namespace ImagePreviewer.GUI
             group.Children.Add(tt);
 
             imgDetail.RenderTransform = group;
-            #endregion
-
-            LoadedCount = 5;
-            TotalCount = 10;
         }
 
-        private void CreateImage(string url)
+        private void ResetZooming()
         {
-            TotalCount++;
+            TransformGroup transformGroup = (TransformGroup)imgDetail.RenderTransform;
+            ScaleTransform transform = (ScaleTransform)transformGroup.Children[0];
 
-            ThreadStart start = delegate()
-            {
-                DispatcherOperation op = Dispatcher.BeginInvoke(
-                    DispatcherPriority.Normal,
-                    new Action<string>(CreateImageSync),
-                    url);
-
-                DispatcherOperationStatus status = op.Status;
-                while (status != DispatcherOperationStatus.Completed)
-                {
-                    status = op.Wait(TimeSpan.FromMilliseconds(1000));
-                    if (status == DispatcherOperationStatus.Aborted)
-                    {
-                        System.Windows.MessageBox.Show("Error add image!");
-                    }
-                }
-            };
-
-            // Create the thread and kick it started!
-            new Thread(start).Start();
+            transform.ScaleX = 1;
+            transform.ScaleY = 1;
         }
 
-        private void CreateImageSync(string url)
+        private void CenterZooming()
         {
-            try
-            {
-                BitmapImage image = new BitmapImage();
-                image.BeginInit();
-                image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.UriSource = new Uri(url);
-                image.DownloadCompleted += delegate
-                {
-                    Image img = new Image();
-                    img.Bitmap = image;
-                    img.Checked = false;
-                    images.Add(img);
-                    LoadedCount++;
-                };
-                image.DownloadFailed += delegate
-                {
-                    TotalCount--;
-                };
-                image.EndInit();
-            }
-            catch (UriFormatException e)
-            {
-                //TODO: ???
-            }
+            TransformGroup transformGroup = (TransformGroup)imgDetail.RenderTransform;
+            ScaleTransform transform = (ScaleTransform)transformGroup.Children[0];
+            double y = 0;//(borDetail.ActualHeight - imgDetail.ActualHeight * transform.ScaleY) / 2;
+
+            var tt = (TranslateTransform)((TransformGroup)imgDetail.RenderTransform).Children.First(tr => tr is TranslateTransform);
+            tt.X = 0;
+            tt.Y = y;
         }
-
-        private void DownloadImage(string url)
-        {
-            ThreadStart start = delegate()
-            {
-                DispatcherOperation op = Dispatcher.BeginInvoke(
-                    DispatcherPriority.Normal,
-                    new Action<string>(DownloadImageAsync),
-                    url);
-
-                DispatcherOperationStatus status = op.Status;
-                while (status != DispatcherOperationStatus.Completed)
-                {
-                    status = op.Wait(TimeSpan.FromMilliseconds(1000));
-                    if (status == DispatcherOperationStatus.Aborted)
-                    {
-                        System.Windows.MessageBox.Show("Error downloading image!");
-                    }
-                }
-            };
-
-            new Thread(start).Start();
-        }
-
-        private void DownloadImageAsync(string url)
-        {
-            Guid photoID = System.Guid.NewGuid();
-            String photolocation = photoID.ToString() + ".jpg";  //file name 
-            WriteBytesToFile(fbd.SelectedPath + @"\" + photolocation, GetBytesFromUrl(url));
-            DownloadedCount++;
-
-            if (DownloadingCount == DownloadedCount)
-            {
-                Message = "All selected images downloaded.";
-            }
-        }
-
-        private void ClearImages()
-        {
-            images.Clear();
-            TotalCount = 0;
-            LoadedCount = 0;
-            DownloadedCount = 0;
-            DownloadingCount = 0;
-        }
-
-        #region ZOOMING
-
-        Point start;
-        Point origin;
 
         private void imgDetail_MouseWheel(object sender, MouseWheelEventArgs e)
         {
@@ -239,12 +120,11 @@ namespace ImagePreviewer.GUI
 
             var tt = (TranslateTransform)((TransformGroup)imgDetail.RenderTransform).Children.First(tr => tr is TranslateTransform);
             Vector v = start - e.GetPosition(borDetail);
-            Message = String.Format("Origin({0},{1}),v({0},{1})", origin.X, origin.Y, v.X, v.Y);
             tt.X = origin.X - v.X;
 
             //if ((origin.Y - v.Y) > 0)
             //{
-                tt.Y = origin.Y - v.Y;
+            tt.Y = origin.Y - v.Y;
             //}
         }
 
@@ -255,110 +135,85 @@ namespace ImagePreviewer.GUI
 
         #endregion
 
-        static public byte[] GetBytesFromUrl(string url)
+        private void mainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            byte[] b;
-            HttpWebRequest myReq = (HttpWebRequest)WebRequest.Create(url);
-            WebResponse myResp = myReq.GetResponse();
-
-            Stream stream = myResp.GetResponseStream();
-            //int i;
-            using (BinaryReader br = new BinaryReader(stream))
-            {
-                //i = (int)(stream.Length);
-                b = br.ReadBytes(500000);
-                br.Close();
-            }
-            myResp.Close();
-            return b;
-        }
-
-        static public void WriteBytesToFile(string fileName, byte[] content)
-        {
-            FileStream fs = new FileStream(fileName, FileMode.Create);
-            BinaryWriter w = new BinaryWriter(fs);
-            try
-            {
-                w.Write(content);
-            }
-            finally
-            {
-                fs.Close();
-                w.Close();
-            }
-
-        }
-
-        private void lbxImages_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (lbxImages.SelectedItem != null)
-            {
-                splInfo.Visibility = System.Windows.Visibility.Visible;
-                imgDetail.Visibility = System.Windows.Visibility.Visible;
-
-                Image image = (Image)lbxImages.SelectedItem;
-                imgDetail.Source = image.Bitmap;
-                lblDetailUrl.Content = image.Bitmap.UriSource.AbsoluteUri;
-                lblDetailWidth.Content = (int)image.Bitmap.Width;
-                lblDetailHeight.Content = (int)image.Bitmap.Height;
-            }
-            else
-            {
-                splInfo.Visibility = System.Windows.Visibility.Hidden;
-                imgDetail.Visibility = System.Windows.Visibility.Hidden;
-            }
+            Manager.Save(Manager.DefaultLocation);
         }
 
         private void btnSave_Click(object sender, RoutedEventArgs e)
         {
-            //fbd.RootFolder = Environment.SpecialFolder.Personal;
-            if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                Message = "";
-                scpDownload.Visibility = System.Windows.Visibility.Visible;
-                DownloadedCount = 0;
-                foreach (Image lbi in lbxImages.Items)
-                {
-                    if (lbi.Checked)
-                    {
-                        DownloadImage(lbi.Bitmap.UriSource.AbsoluteUri);
-                    }
-                }
-            }
-
+            grdSave.Visibility = Visibility.Visible;
+            cbxIndexBy.ItemsSource = Enum.GetNames(typeof(IndexBy));
         }
 
         private void btnSeriesInput_Click(object sender, RoutedEventArgs e)
         {
-            if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
-                ClearImages();
+            grdSeries.Visibility = Visibility.Visible;
+            cbxUrl.Focus();
+            newUrls.Clear();
 
-            SeriesInput si = new SeriesInput();
-            si.LoadButtonClicked += delegate
+            if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
+                Manager.Images.Clear();
+        }
+
+        private void StartImagesLoading()
+        {
+            ThreadStart start = delegate()
             {
-                si.Hide();
-                foreach(string link in si.Get()) {
-                    CreateImage(link);
+                DispatcherOperation op = Dispatcher.BeginInvoke(
+                    DispatcherPriority.Normal,
+                    new Action<object, EventArgs>(Images_ImageDownloaded),
+                    null,
+                    null);
+
+                DispatcherOperationStatus status = op.Status;
+                while (status != DispatcherOperationStatus.Completed)
+                {
+                    status = op.Wait(TimeSpan.FromMilliseconds(1000));
+                    if (status == DispatcherOperationStatus.Aborted)
+                    {
+                        System.Windows.MessageBox.Show("Error downloading image!");
+                    }
                 }
-                si.Close();
             };
-            si.Closed += delegate { si = null; };
-            si.Show();
+
+            new Thread(start).Start();
+        }
+
+        private void Images_ImageDownloaded(object sender, EventArgs e)
+        {
+            Image image = (Image)sender;
+            if (image != null)
+                newUrls.Remove(image.Url);
+            else
+                newUrls.Remove(newUrls[0]);
+
+            while (true)
+            {
+                try
+                {
+                    if (newUrls.Count > 0)
+                        Manager.Images.Add(newUrls[0], Images_ImageDownloaded);
+
+                    break;
+                }
+                catch (UriFormatException)
+                {
+                    newUrls.Remove(newUrls[0]);
+                }
+            }
         }
 
         private void btnLinksInput_Click(object sender, RoutedEventArgs e)
         {
             if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
-                ClearImages();
+                Manager.Images.Clear();
 
             LinkExtractor.MainForm form = new LinkExtractor.MainForm();
             form.SubstractLinksButtonClicked += delegate {
-                form.Hide();
-                foreach (string link in form.GetFilteredLinks())
-                {
-                    CreateImage(link);
-                }
+                newUrls.AddRange(form.GetFilteredLinks());
                 form.Close();
+                StartImagesLoading();
             };
             form.FormClosing += delegate { form = null; };
             form.Show();
@@ -366,29 +221,109 @@ namespace ImagePreviewer.GUI
 
         private void btnGo_Click(object sender, RoutedEventArgs e)
         {
-            System.Diagnostics.Process.Start(lblDetailUrl.Content.ToString());
+            if (lbxImages.SelectedItem != null)
+                System.Diagnostics.Process.Start(((Image)lbxImages.SelectedItem).Url);
         }
 
-        private void ListBoxItem_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private void btnCopy_Click(object sender, RoutedEventArgs e)
         {
-            if (lbxImages.SelectedItem != null && e.Key.Equals(Key.Space))
-            {
-                if (images[lbxImages.SelectedIndex].Checked)
-                {
-                    images[lbxImages.SelectedIndex].Checked = false;
-                    DownloadingCount--;
-                }
-                else
-                {
-                    images[lbxImages.SelectedIndex].Checked = true;
-                    DownloadingCount++;
-                }
-            }
+            System.Windows.Clipboard.SetText(Manager.Images[lbxImages.SelectedIndex].Url);
+        }
+
+        private void lbxImages_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key.Equals(Key.Space) && lbxImages.SelectedItem != null)
+                Manager.Images[lbxImages.SelectedIndex].Selected = !Manager.Images[lbxImages.SelectedIndex].Selected;
         }
 
         private void btnClear_Click(object sender, RoutedEventArgs e)
         {
-            ClearImages();
+            Manager.Images.Clear();
         }
+
+        private void btnResetZooming_Click(object sender, RoutedEventArgs e)
+        {
+            ResetZooming();
+            CenterZooming();
+        }
+
+        private void btnCenterZoom_Click(object sender, RoutedEventArgs e)
+        {
+            CenterZooming();
+        }
+
+        #region SERIES INPUT
+
+        private void btnLoadSerie_Click(object sender, RoutedEventArgs e)
+        {
+            if (!String.IsNullOrEmpty(Manager.CurrentFormat) && !String.IsNullOrWhiteSpace(Manager.CurrentFormat) && !Manager.Formats.Contains(Manager.CurrentFormat))
+                Manager.Formats.Add(Manager.CurrentFormat);
+
+            grdSeries.Visibility = Visibility.Hidden;
+
+            for (int i = Manager.StartIndex; i <= Manager.EndIndex; i++)
+            {
+                string url = String.Format(Manager.CurrentFormat, i);
+                newUrls.Add(url);
+            }
+            StartImagesLoading();
+        }
+
+        private void btnCopyUrl_Click(object sender, RoutedEventArgs e)
+        {
+            Manager.CurrentFormat = Manager.ExampleFormat;
+        }
+
+        private void btnCloseSeries_Click(object sender, RoutedEventArgs e)
+        {
+            grdSeries.Visibility = Visibility.Hidden;
+        }
+
+        private void btnBrowseToSave_Click(object sender, RoutedEventArgs e)
+        {
+            if(dialog == null)
+                dialog = new FolderBrowserDialog();
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                Manager.SelectedPath = dialog.SelectedPath;
+        }
+
+        private void btnCloseSave_Click(object sender, RoutedEventArgs e)
+        {
+            grdSave.Visibility = Visibility.Hidden;
+        }
+
+        private void btnSaveSerie_Click(object sender, RoutedEventArgs e)
+        {
+            if (Manager.SelectedPath != null && Directory.Exists(Manager.SelectedPath))
+            {
+                int index = 1;
+                prgDownload.Value = 0;
+                prgDownload.Maximum = Manager.Images.SelectedCount;
+                foreach (Image img in Manager.Images.Where(i => i.Selected))
+                {
+                    string fileName;
+                    if (Manager.IndexBy == IndexBy.Guid)
+                        fileName = String.Format("{0}{1}", Manager.BaseFileName, Guid.NewGuid());
+                    else
+                        fileName = String.Format("{0}{1}", Manager.BaseFileName, index);
+
+                    FileStream file = new FileStream(System.IO.Path.Combine(Manager.SelectedPath, String.Format("{0}.jpg", fileName)), FileMode.Create);
+
+                    JpegBitmapEncoder encoder = new JpegBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(img.Bitmap));
+                    encoder.QualityLevel = 100;
+                    encoder.Save(file);
+
+                    file.Close();
+                    index++;
+                    prgDownload.Value++;
+                }
+
+                grdSave.Visibility = Visibility.Hidden;
+            }
+        }
+
+        #endregion
     }
 }
