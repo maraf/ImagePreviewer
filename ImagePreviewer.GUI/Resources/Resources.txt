@@ -1,0 +1,7 @@
+﻿SeriesInput.Title=SeriesInput
+SeriesInput.Example=Example
+SeriesInput.Url=Url
+SeriesInput.Copy=Copy
+SeriesInput.From=From
+SeriesInput.To=To
+SeriesInput.Load=Load
