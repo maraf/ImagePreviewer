@@ -15,7 +15,7 @@
                             </StackPanel>
                         </Button>
                         <Button x:Name="btnLinksInput" Content="Links input" Margin="0,2,10,2" Click="btnLinksInput_Click" />
-                        <Button x:Name="btnClear" Content="Clear" Margin="0,2,10,2" Click="btnClear_Click" IsEnabled="{Binding Images.SelectedCount, Converter={StaticResource intToBool}}" />
+                        <Button x:Name="btnClear" Content="Clear" Margin="0,2,10,2" Click="btnClear_Click" IsEnabled="{Binding Images.Count, Converter={StaticResource intToBool}}" />
                         <Button x:Name="btnSave" Content="Save selected" Margin="0,2,10,2" Click="btnSave_Click" IsEnabled="{Binding Images.SelectedCount, Converter={StaticResource intToBool}}" />
                         <CheckBox x:Name="cbxAppend" Content="Append new" Margin="0,5,10,5" />
                     </StackPanel>

@@ -150,7 +150,9 @@ namespace ImagePreviewer.GUI
         {
             grdSeries.Visibility = Visibility.Visible;
             cbxUrl.Focus();
-            newUrls.Clear();
+
+            if (cbxAppend.IsChecked != null && !cbxAppend.IsChecked.Value)
+                newUrls.Clear();
 
             if (cbxAppend.IsChecked != null && cbxAppend.IsChecked == false)
                 Manager.Images.Clear();
@@ -185,7 +187,7 @@ namespace ImagePreviewer.GUI
             Image image = (Image)sender;
             if (image != null)
                 newUrls.Remove(image.Url);
-            else
+            else if (newUrls.Count > 0 && newUrls.Contains(newUrls[0]))
                 newUrls.Remove(newUrls[0]);
 
             while (true)
@@ -261,12 +263,16 @@ namespace ImagePreviewer.GUI
 
             grdSeries.Visibility = Visibility.Hidden;
 
+            bool empty = newUrls.Count == 0;
+
             for (int i = Manager.StartIndex; i <= Manager.EndIndex; i++)
             {
                 string url = String.Format(Manager.CurrentFormat, i);
                 newUrls.Add(url);
             }
-            StartImagesLoading();
+
+            if (empty)
+                StartImagesLoading();
         }
 
         private void btnCopyUrl_Click(object sender, RoutedEventArgs e)
